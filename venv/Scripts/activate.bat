@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\mithr\Develop\AI agent\venv
+set VIRTUAL_ENV=C:\Users\Mithran\Development\Album-AI-Agent\venv
 
 if not defined PROMPT set PROMPT=$P$G
 

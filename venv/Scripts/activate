@@ -35,7 +35,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\mithr\Develop\AI agent\venv"
+VIRTUAL_ENV="C:\Users\Mithran\Development\Album-AI-Agent\venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
