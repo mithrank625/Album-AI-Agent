@@ -8,9 +8,8 @@ def filter_tracks(tracks, min_energy=0.5, min_popularity=50):
             filtered.append(track)
     return filtered
 
-def clean_user_input(user_input):
+def clean_user_input(user_input): 
     return user_input.strip().lower()
-
 def parse_llm_response(response):
     params = {}
     matches = re.findall(r'(\w+):\s*([^,]+)', response)

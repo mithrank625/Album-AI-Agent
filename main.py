@@ -21,22 +21,29 @@ def interpret_user_request(user_input: str):
     prompt = ChatPromptTemplate.from_template(
         "Extract the mood, genre, artist style, and other relevant playlist parameters from: '{user_input}'. Respond in format: Mood: <mood>, Genre: <genre>, Artist: <artist>, Energy: <energy>, Popularity: <popularity>"
     )
-    response = llm.invoke({"user_input": user_input})
+    prompt_str = prompt.format(user_input=user_input)
+    response = llm.invoke(prompt_str)
     return response.content
 
 def search_spotify_tracks(params):
     sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope="playlist-modify-public"))
     query_parts = []
-    if "genre" in params:
+    if "genre" in params and params["genre"]:
         query_parts.append(f'genre:"{params["genre"]}"')
-    if "artist" in params:
+    if "artist" in params and params["artist"]:
         query_parts.append(f'artist:"{params["artist"]}"')
-    if "mood" in params:
+    if "mood" in params and params["mood"]:
         query_parts.append(params["mood"])
-    query = " ".join(query_parts)
+    query = " ".join(query_parts).strip()
+    if not query:
+        print("No valid search parameters found. Please try a more descriptive request.")
+        return []
     results = sp.search(q=query, type="track", limit=20)
     tracks = results["tracks"]["items"]
     track_ids = [track["id"] for track in tracks]
+    if not track_ids:
+        print("No tracks found for the given parameters.")
+        return []
     features = sp.audio_features(track_ids)
     for track, feature in zip(tracks, features):
         track["audio_features"] = feature if feature else {}
