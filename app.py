@@ -5,7 +5,8 @@ from langchain_core.prompts import ChatPromptTemplate
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from tools import parse_llm_response, filter_tracks, clean_user_input
-
+from flask import Flask, render_template, request, jsonify
+import json
 
 load_dotenv() 
 
@@ -61,16 +62,49 @@ def create_or_update_playlist(tracks, playlist_name="AI Playlist"):
         sp.playlist_add_items(playlist["id"], track_ids)
     return playlist["external_urls"]["spotify"]
 
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/generate_playlist', methods=['POST'])
+def generate_playlist():
+    try:
+        data = request.get_json()
+        vibe = data.get('vibe', '')
+        popularity = data.get('popularity', 'medium')
+        song_count = int(data.get('song_count', 10))
+
+        user_input = f"Create a {vibe} playlist with {song_count} songs, popularity level: {popularity}"
+        
+        cleaned_input = clean_user_input(user_input)
+        llm_response = interpret_user_request(cleaned_input)
+        params = parse_llm_response(llm_response)
+
+        params['song_count'] = song_count
+        
+        tracks = search_spotify_tracks(params)
+        
+        if tracks:
+            tracks = tracks[:song_count]
+            playlist_url = create_or_update_playlist(tracks, f"{vibe.title()} Playlist")
+            return jsonify({
+                'success': True,
+                'playlist_url': playlist_url,
+                'track_count': len(tracks),
+                'tracks': [{'name': track['name'], 'artist': track['artists'][0]['name']} for track in tracks]
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No tracks found for the given parameters.'
+            })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 if __name__ == "__main__":
-    user_input = input("Describe your playlist: ")
-    cleaned_input = clean_user_input(user_input)
-    llm_response = interpret_user_request(cleaned_input)
-    params = parse_llm_response(llm_response)
-    tracks = search_spotify_tracks(params)
-    if tracks:
-        playlist_url = create_or_update_playlist(tracks)
-        print(f"Your playlist: {playlist_url}")
-    else:
-        print("No tracks found for the given parameters.")
-
+    app.run(debug=True)

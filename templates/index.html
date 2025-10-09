@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Playlist Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 AI Playlist Generator</h1>
+            <p>Create the perfect playlist based on your vibe and preferences</p>
+        </div>
+
+        <form id="playlistForm">
+            <div class="form-group">
+                <label for="vibe">What's your vibe?</label>
+                <input type="text" id="vibe" name="vibe" placeholder="e.g., chill, energetic, romantic, workout" required>
+            </div>
+
+            <div class="form-group">
+                <label for="popularity">Popularity Level</label>
+                <select id="popularity" name="popularity" required>
+                    <option value="low">Underground & Indie</option>
+                    <option value="medium" selected>Mixed Popularity</option>
+                    <option value="high">Mainstream Hits</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="song_count">Number of Songs</label>
+                <div class="song-count-group">
+                    <input type="range" id="song_count" name="song_count" min="5" max="50" value="15" oninput="updateSongCount()">
+                    <span class="range-display" id="songCountDisplay">15</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn" id="generateBtn">
+                Generate My Playlist 🎶
+            </button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Creating your perfect playlist...</p>
+        </div>
+
+        <div class="result" id="result">
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <script>
+        function updateSongCount() {
+            const slider = document.getElementById('song_count');
+            const display = document.getElementById('songCountDisplay');
+            display.textContent = slider.value;
+        }
+
+        document.getElementById('playlistForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = {
+                vibe: formData.get('vibe'),
+                popularity: formData.get('popularity'),
+                song_count: formData.get('song_count')
+            };
+
+            // Show loading state
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+
+            try {
+                const response = await fetch('/generate_playlist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                // Hide loading state
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('result').style.display = 'block';
+
+                if (result.success) {
+                    document.getElementById('result').className = 'result success';
+                    document.getElementById('resultContent').innerHTML = `
+                        <h3>Your playlist is ready!</h3>
+                        <p>Generated ${result.track_count} songs for your "${data.vibe}" vibe.</p>
+                        <a href="${result.playlist_url}" target="_blank" class="playlist-link">
+                            Open in Spotify 🎵
+                        </a>
+                        <div class="track-list">
+                            <h4>Track Preview:</h4>
+                            ${result.tracks.slice(0, 10).map(track => `
+                                <div class="track-item">
+                                    <span class="track-name">${track.name}</span>
+                                    <span class="track-artist">${track.artist}</span>
+                                </div>
+                            `).join('')}
+                            ${result.tracks.length > 10 ? `<p style="text-align: center; color: #666; margin-top: 10px;">... and ${result.tracks.length - 10} more tracks!</p>` : ''}
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('result').className = 'result error';
+                    document.getElementById('resultContent').innerHTML = `
+                        <h3>Oops! Something went wrong</h3>
+                        <p>${result.error}</p>
+                        <p>Please try again with different parameters.</p>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('result').style.display = 'block';
+                document.getElementById('result').className = 'result error';
+                document.getElementById('resultContent').innerHTML = `
+                    <h3>Connection Error</h3>
+                    <p>Unable to connect to the server. Please check your internet connection and try again.</p>
+                `;
+            } finally {
+                document.getElementById('generateBtn').disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
