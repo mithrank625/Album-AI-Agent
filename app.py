@@ -63,12 +63,38 @@ def search_spotify_tracks(params):
         else:
             query = " ".join(query_parts).strip()
         
-        results = sp.search(q=query, type="track", limit=20)
+        song_count = params.get("song_count", 20)
+        limit = min(song_count, 50)
+        
+        results = sp.search(q=query, type="track", limit=limit)
         tracks = results["tracks"]["items"]
         
+        if len(tracks) < song_count and results["tracks"]["next"]:
+            offset = len(tracks)
+            while len(tracks) < song_count and offset < 1000: 
+                remaining = min(song_count - len(tracks), 50)
+                additional_results = sp.search(q=query, type="track", limit=remaining, offset=offset)
+                additional_tracks = additional_results["tracks"]["items"]
+                if not additional_tracks:
+                    break
+                tracks.extend(additional_tracks)
+                offset += len(additional_tracks)
+        
         if not tracks:
-            results = sp.search(q=params.get("mood", "music"), type="track", limit=20)
+            results = sp.search(q=params.get("mood", "music"), type="track", limit=limit)
             tracks = results["tracks"]["items"]
+            
+            # If we need more tracks, make additional requests
+            if len(tracks) < song_count and results["tracks"]["next"]:
+                offset = len(tracks)
+                while len(tracks) < song_count and offset < 1000:
+                    remaining = min(song_count - len(tracks), 50)
+                    additional_results = sp.search(q=params.get("mood", "music"), type="track", limit=remaining, offset=offset)
+                    additional_tracks = additional_results["tracks"]["items"]
+                    if not additional_tracks:
+                        break
+                    tracks.extend(additional_tracks)
+                    offset += len(additional_tracks)
         
         if not tracks:
             return []
@@ -134,6 +160,36 @@ def callback():
     """Handle Spotify OAuth callback"""
     return redirect(url_for('index'))
 
+@app.route('/create_playlist', methods=['POST'])
+def create_playlist():
+    """Create playlist when user clicks the link"""
+    try:
+        if 'pending_tracks' not in session or not session['pending_tracks']:
+            return jsonify({
+                'success': False,
+                'error': 'No pending tracks found. Please generate a playlist first.'
+            })
+        
+        pending_tracks = session['pending_tracks']
+        playlist_name = session.get('playlist_name', 'AI Playlist')
+        
+        track_objects = [{'id': track['id']} for track in pending_tracks]
+        playlist_url = create_or_update_playlist(track_objects, playlist_name)
+        
+        session.pop('pending_tracks', None)
+        session.pop('playlist_name', None)
+        
+        return jsonify({
+            'success': True,
+            'playlist_url': playlist_url
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'An error occurred while creating the playlist: {str(e)}'
+        })
+
 @app.route('/generate_playlist', methods=['POST'])
 def generate_playlist():
     try:
@@ -169,10 +225,13 @@ def generate_playlist():
         
         if tracks:
             tracks = tracks[:song_count]
-            playlist_url = create_or_update_playlist(tracks, f"{vibe.title()} Playlist")
+
+            track_data = [{'id': track['id'], 'name': track['name'], 'artist': track['artists'][0]['name']} for track in tracks]
+            session['pending_tracks'] = track_data
+            session['playlist_name'] = f"{vibe.title()} Playlist"
             return jsonify({
                 'success': True,
-                'playlist_url': playlist_url,
+                'playlist_url': None,
                 'track_count': len(tracks),
                 'tracks': [{'name': track['name'], 'artist': track['artists'][0]['name']} for track in tracks]
             })

@@ -58,6 +58,45 @@
             display.textContent = slider.value;
         }
 
+        async function createPlaylist(event) {
+            event.preventDefault();
+            const link = document.getElementById('createPlaylistLink');
+            const originalText = link.innerHTML;
+            
+            // Disable link and show loading
+            link.style.pointerEvents = 'none';
+            link.innerHTML = 'Creating playlist...';
+            
+            try {
+                const response = await fetch('/create_playlist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update link to open the Spotify playlist
+                    link.href = result.playlist_url;
+                    link.target = '_blank';
+                    link.innerHTML = 'Open in Spotify 🎵';
+                    link.style.pointerEvents = 'auto';
+                    // Open in new tab
+                    window.open(result.playlist_url, '_blank');
+                } else {
+                    link.innerHTML = originalText;
+                    link.style.pointerEvents = 'auto';
+                    alert('Error creating playlist: ' + result.error);
+                }
+            } catch (error) {
+                link.innerHTML = originalText;
+                link.style.pointerEvents = 'auto';
+                alert('Error creating playlist: ' + error.message);
+            }
+        }
+
         document.getElementById('playlistForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -93,8 +132,8 @@
                     document.getElementById('resultContent').innerHTML = `
                         <h3>Your playlist is ready!</h3>
                         <p>Generated ${result.track_count} songs for your "${data.vibe}" vibe.</p>
-                        <a href="${result.playlist_url}" target="_blank" class="playlist-link">
-                            Open in Spotify 🎵
+                        <a href="#" id="createPlaylistLink" class="playlist-link" onclick="createPlaylist(event)">
+                            Add to Spotify 🎵
                         </a>
                         <div class="track-list">
                             <h4>Track Preview:</h4>
